@@ -2,7 +2,10 @@ name: Update online quote feed
 
 on:
   schedule:
-    - cron: "17 3 * * *"
+    # GitHub cron uses UTC. These two triggers cover 01:00 in Germany
+    # during both Central European summer and winter time.
+    - cron: "0 23 * * *"
+    - cron: "0 0 * * *"
   workflow_dispatch:
 
 permissions:
@@ -17,13 +20,27 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      - name: Check German local time
+        id: local_time
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]] || \
+             [[ "$(TZ=Europe/Berlin date +%H)" == "01" ]]; then
+            echo "run_update=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run_update=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Check out repository
+        if: steps.local_time.outputs.run_update == 'true'
         uses: actions/checkout@v4
 
       - name: Fetch and validate quotes
+        if: steps.local_time.outputs.run_update == 'true'
         run: python tools/update_online_quotes.py
 
       - name: Commit changed feed
+        if: steps.local_time.outputs.run_update == 'true'
         run: |
           if git diff --quiet -- online/quotes.json; then
             echo "Quote feed is unchanged"

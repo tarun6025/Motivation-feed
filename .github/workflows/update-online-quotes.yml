@@ -20,12 +20,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Check German local time
+      - name: Select German 01:00 trigger
         id: local_time
         shell: bash
         run: |
+          berlin_offset="$(TZ=Europe/Berlin date +%z)"
+          scheduled_cron="${{ github.event.schedule }}"
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]] || \
-             [[ "$(TZ=Europe/Berlin date +%H)" == "01" ]]; then
+             [[ "$scheduled_cron" == "0 23 * * *" && "$berlin_offset" == "+0200" ]] || \
+             [[ "$scheduled_cron" == "0 0 * * *" && "$berlin_offset" == "+0100" ]]; then
             echo "run_update=true" >> "$GITHUB_OUTPUT"
           else
             echo "run_update=false" >> "$GITHUB_OUTPUT"
